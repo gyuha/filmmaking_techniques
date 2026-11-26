@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>영상 기법 50 — three.js로 보는 촬영·편집 기법</title>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="brand">
+          <h1>영상 기법 50</h1>
+          <p>기법을 고르면 감독 시점과 카메라 화면이 함께 움직입니다.</p>
+        </div>
+        <nav id="technique-list" aria-label="기법 목록"></nav>
+      </aside>
+      <main id="main">
+        <header id="title-bar">
+          <span id="tech-number">01</span>
+          <div class="titles">
+            <h2 id="tech-name">달리 인</h2>
+            <span id="tech-meta"></span>
+          </div>
+        </header>
+        <section id="views">
+          <figure class="view">
+            <figcaption class="view-label">감독 시점 <small>카메라가 움직이는 모습 · 드래그로 회전, 휠로 확대</small></figcaption>
+            <div class="canvas-wrap"><canvas id="director-canvas"></canvas></div>
+          </figure>
+          <figure class="view">
+            <figcaption class="view-label">카메라 화면 <small>카메라에 실제로 찍히는 장면</small></figcaption>
+            <div class="canvas-wrap"><canvas id="camera-canvas"></canvas><div id="overlay"></div></div>
+          </figure>
+        </section>
+        <section id="timeline" aria-label="타임라인">
+          <div id="timeline-track"><div id="timeline-segments"></div><svg id="timeline-graph" preserveAspectRatio="none"></svg><div id="playhead"></div></div>
+          <div id="timeline-legend"></div>
+        </section>
+        <section id="controls">
+          <button id="play" type="button" aria-label="재생/일시정지">❚❚</button>
+          <button id="restart" type="button" aria-label="처음부터">⟲</button>
+          <label>속도
+            <select id="speed">
+              <option value="0.25">0.25×</option>
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+          <span id="readout"></span>
+        </section>
+        <section id="info">
+          <article>
+            <h3>화면 설명</h3>
+            <p id="description"></p>
+          </article>
+          <article>
+            <h3>주로 쓰이는 상황</h3>
+            <p id="usage"></p>
+          </article>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
