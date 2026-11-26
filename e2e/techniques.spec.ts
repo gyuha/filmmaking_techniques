@@ -1,6 +1,7 @@
 // C5 — 실제 화면 E2E (.forge/loop.md)
 import { expect, test } from '@playwright/test';
 import { TECHNIQUES } from '../src/data/techniques';
+import { PROMPTS } from '../src/data/prompts';
 import { canvasPixels, meanAbsDiff, openApp, variance } from './util';
 
 // 기법별로 반드시 켜져 있어야 하는 후처리 패스(효과 메커니즘이 실제 렌더러에 연결됐는지)
@@ -64,6 +65,8 @@ test('C5 모든 기법: 두 화면·텍스트·리그·콘솔 오류', async ({ 
     await expect(page.locator('#usage')).toHaveText(t.usage);
     await expect(page.locator('#description')).toBeVisible();
     await expect(page.locator('#usage')).toBeVisible();
+    await expect(page.locator('#prompt-ko')).toHaveText(PROMPTS[t.id].ko);
+    await expect(page.locator('#prompt-en')).toHaveText(PROMPTS[t.id].en);
   }
 
   // 재생하면 시간이 흐른다

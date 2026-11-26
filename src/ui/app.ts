@@ -1,5 +1,6 @@
 import { PARTS, TECHNIQUES } from '../data/techniques';
 import { thumbUrl } from '../data/thumbs';
+import { PROMPTS } from '../data/prompts';
 import type { Frame } from '../techniques/types';
 import type { Stage } from '../view/stage';
 import { primaryShot } from '../view/cameraView';
@@ -44,6 +45,8 @@ export function showInfo(id: number) {
   $('#tech-meta').textContent = `${t.nameEn} · ${t.part}부 ${t.partName}`;
   $('#description').textContent = t.screenDescription;
   $('#usage').textContent = t.usage;
+  $('#prompt-ko').textContent = PROMPTS[id]?.ko ?? '';
+  $('#prompt-en').textContent = PROMPTS[id]?.en ?? '';
   document.querySelectorAll<HTMLButtonElement>('#technique-list button').forEach((b) => {
     b.setAttribute('aria-current', b.dataset.techniqueId === String(id) ? 'true' : 'false');
   });
@@ -159,6 +162,19 @@ export function bindControls(stage: Stage) {
   });
   $<HTMLSelectElement>('#speed').addEventListener('change', (e) => {
     stage.speed = Number((e.target as HTMLSelectElement).value);
+  });
+  document.querySelectorAll<HTMLButtonElement>('#prompts .copy').forEach((b) => {
+    const label = b.textContent ?? '';
+    b.addEventListener('click', async () => {
+      const text = document.getElementById(b.dataset.target!)?.textContent ?? '';
+      try {
+        await navigator.clipboard.writeText(text);
+        b.textContent = label === 'Copy' ? 'Copied' : '복사됨';
+      } catch {
+        b.textContent = label === 'Copy' ? 'Failed' : '실패';
+      }
+      setTimeout(() => (b.textContent = label), 1500);
+    });
   });
   $('#timeline-track').addEventListener('click', (e) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();

@@ -37,3 +37,21 @@ describe('C2 기법 데이터', () => {
     expect(new Set(TECHNIQUES.map((t) => t.usage.trim())).size).toBe(TOTAL);
   });
 });
+
+describe('AI 프롬프트(한국어 · English)', () => {
+  it('모든 기법에 한국어·영어 프롬프트가 있고 기법 이름이 들어 있음', async () => {
+    const { PROMPTS } = await import('../src/data/prompts');
+    const hangul = /[가-힣]/;
+    for (const t of TECHNIQUES) {
+      const p = PROMPTS[t.id];
+      expect(p, `#${t.id} 프롬프트 없음`).toBeDefined();
+      expect(p.ko.trim().length, `#${t.id} ko`).toBeGreaterThanOrEqual(30);
+      expect(p.en.trim().length, `#${t.id} en`).toBeGreaterThanOrEqual(40);
+      expect(hangul.test(p.ko), `#${t.id} ko는 한국어`).toBe(true);
+      expect(hangul.test(p.en), `#${t.id} en에 한글 없음`).toBe(false);
+      for (const part of t.name.split(/[·/]/).map((s) => s.trim()).filter(Boolean)) expect(p.ko, `#${t.id} ko에 '${part}'`).toContain(part);
+      for (const part of t.nameEn.split(/[&/()]/).map((s) => s.trim()).filter(Boolean)) expect(p.en.toLowerCase(), `#${t.id} en에 '${part}'`).toContain(part.toLowerCase());
+    }
+    expect(Object.keys(PROMPTS)).toHaveLength(TOTAL);
+  });
+});
