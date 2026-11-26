@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "thumbs": "vite build && node --experimental-strip-types scripts/capture-thumbs.mjs"
   },
   "dependencies": {
     "three": "^0.187.0"

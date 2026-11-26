@@ -1,4 +1,5 @@
 import { PARTS, TECHNIQUES } from '../data/techniques';
+import { thumbUrl } from '../data/thumbs';
 import type { Frame } from '../techniques/types';
 import type { Stage } from '../view/stage';
 import { primaryShot } from '../view/cameraView';
@@ -22,7 +23,10 @@ export function buildSidebar(onSelect: (id: number) => void) {
       const b = document.createElement('button');
       b.type = 'button';
       b.dataset.techniqueId = String(t.id);
-      b.innerHTML = `<span class="num">${String(t.id).padStart(2, '0')}</span><span class="name"></span>`;
+      b.innerHTML = `<img class="thumb" alt="" loading="lazy" decoding="async"><span class="label"><span class="num">${String(t.id).padStart(2, '0')}</span><span class="name"></span></span>`;
+      const img = b.querySelector('img') as HTMLImageElement;
+      img.src = thumbUrl(t.id);
+      img.alt = `${t.name} 대표 장면`;
       (b.querySelector('.name') as HTMLElement).textContent = t.name;
       b.addEventListener('click', () => onSelect(t.id));
       li.appendChild(b);
@@ -43,6 +47,7 @@ export function showInfo(id: number) {
   document.querySelectorAll<HTMLButtonElement>('#technique-list button').forEach((b) => {
     b.setAttribute('aria-current', b.dataset.techniqueId === String(id) ? 'true' : 'false');
   });
+  document.querySelector<HTMLButtonElement>(`#technique-list button[data-technique-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
   document.title = `${t.name} — 영상 기법 50`;
 }
 
