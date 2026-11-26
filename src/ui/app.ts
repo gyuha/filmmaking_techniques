@@ -48,7 +48,7 @@ export function showInfo(id: number) {
     b.setAttribute('aria-current', b.dataset.techniqueId === String(id) ? 'true' : 'false');
   });
   document.querySelector<HTMLButtonElement>(`#technique-list button[data-technique-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
-  document.title = `${t.name} — 영상 기법 50`;
+  document.title = `${t.name} — 영상 기법 ${TECHNIQUES.length}`;
 }
 
 /** 샷 구간(컷)과 속도·밝기 그래프를 타임라인에 그린다 */
@@ -74,6 +74,31 @@ export function buildTimeline(stage: Stage) {
     d.style.background = ids.length > 1 ? SEG_COLORS[ids.indexOf(s.id) % SEG_COLORS.length] : '#3a3f52';
     d.textContent = ids.length > 1 ? s.id : '';
     box.appendChild(d);
+  }
+
+  // 소리 트랙(J컷·L컷처럼 소리와 화면이 따로 넘어가는 기법)
+  const audioBox = $('#timeline-audio');
+  audioBox.innerHTML = '';
+  const audio = samples.map((f) => primaryShot(f).world.props.audio);
+  audioBox.hidden = !audio.some((a) => typeof a === 'string');
+  if (!audioBox.hidden) {
+    const label = document.createElement('span');
+    label.className = 'track-label';
+    label.textContent = '소리';
+    audioBox.appendChild(label);
+    let from = 0;
+    for (let i = 1; i <= audio.length; i++) {
+      if (i === audio.length || audio[i] !== audio[from]) {
+        const d = document.createElement('div');
+        d.className = 'seg';
+        d.style.width = `${((i - from) / audio.length) * 100}%`;
+        const id = String(audio[from]);
+        d.style.background = SEG_COLORS[ids.indexOf(id) >= 0 ? ids.indexOf(id) % SEG_COLORS.length : 7];
+        d.textContent = id;
+        audioBox.appendChild(d);
+        from = i;
+      }
+    }
   }
 
   const svg = $('#timeline-graph') as unknown as SVGSVGElement;

@@ -4,19 +4,21 @@ import { describe, expect, it } from 'vitest';
 import type { Frame, Vec3 } from '../src/techniques/types';
 import { activePasses } from '../src/view/composite';
 import { cam, cutCount, dist, impl, len, project, samples, samplesDt, segments, sub, subj } from './helpers';
+import { TOTAL } from './fixtures/technique-names';
 
 const range = (v: number[]) => Math.max(...v) - Math.min(...v);
 const st = (f: Frame) => f.shots[0].world.sceneTime;
 const passesOf = (f: Frame) => activePasses(f.composite, f.effects);
 const anyFrame = (id: number, pred: (f: Frame) => boolean, n = 240) => samples(impl(id), n).some(pred);
+const has = (id: number, pass: string) => expect(anyFrame(id, (f) => passesOf(f).includes(pass)), `#${id} ${pass}`).toBe(true);
 const vec = (v: unknown): Vec3 => {
   expect(Array.isArray(v) && v.length === 3).toBe(true);
   return v as Vec3;
 };
 
 describe('C4 공통', () => {
-  it('50개 모두 자리표시자가 아님', () => {
-    for (let id = 1; id <= 50; id++) expect(impl(id).placeholder === true, `#${id} placeholder`).toBe(false);
+  it('모든 기법이 자리표시자가 아님', () => {
+    for (let id = 1; id <= TOTAL; id++) expect(impl(id).placeholder === true, `#${id} placeholder`).toBe(false);
   });
 });
 
@@ -208,7 +210,6 @@ describe('C4 시간', () => {
 });
 
 describe('C4 렌즈·빛·색·룩', () => {
-  const has = (id: number, pass: string) => expect(anyFrame(id, (f) => passesOf(f).includes(pass)), `#${id} ${pass}`).toBe(true);
 
   it('37 랙 포커스: 초점이 꽃(가까이)에서 캐릭터(멀리)로', () => {
     const fr = samples(impl(37)).filter((f) => f.effects.dof);
@@ -281,4 +282,120 @@ describe('C4 렌즈·빛·색·룩', () => {
   });
 
   it('49 필름 그레인: 패스 활성', () => has(49, 'grain'));
+});
+
+describe('C4 9부 편집 문법·전환', () => {
+  const cutsOf = (id: number, dt = 1 / 60) => {
+    const fr = samplesDt(impl(id), dt);
+    return fr.flatMap((f, i) => (i > 0 && f.shots[0].id !== fr[i - 1].shots[0].id ? [[fr[i - 1], f] as const] : []));
+  };
+
+  it('59 컷 온 액션: 동작 도중(20~80%)에 컷, 동작은 끊기지 않고 카메라는 크게 바뀜', () => {
+    const ok = cutsOf(59).some(([a, b]) => {
+      const pa = a.shots[0].world.props.actionProgress as number;
+      const pb = b.shots[0].world.props.actionProgress as number;
+      return pa > 0.2 && pa < 0.8 && Math.abs(pb - pa) < 0.05 && dist(cam(a).position, cam(b).position) > 2;
+    });
+    expect(ok).toBe(true);
+  });
+
+  it('60 아이라인 매치: 캐릭터가 보는 곳을 다음 샷이 그 방향으로 보여줌', () => {
+    const ok = cutsOf(60).some(([a, b]) => {
+      const target = vec(a.shots[0].world.props.lookTarget);
+      const gaze = sub(target, subj(a));
+      const view = sub(cam(b).target, cam(b).position);
+      const cos = (gaze[0] * view[0] + gaze[1] * view[1] + gaze[2] * view[2]) / (len(gaze) * len(view));
+      return dist(cam(b).target, target) < 1 && cos > 0.6;
+    });
+    expect(ok).toBe(true);
+  });
+
+  it('61 쿨레쇼프 효과: 같은 얼굴 숏(구도·표정 동일) 사이에 서로 다른 장면 ≥ 3', () => {
+    const fr = samples(impl(61), 480);
+    const faces = fr.filter((f) => f.shots[0].world.props.kind === 'face');
+    const contexts = new Set(fr.filter((f) => f.shots[0].world.props.kind === 'context').map((f) => f.shots[0].world.props.context));
+    expect(faces.length).toBeGreaterThan(20);
+    expect(contexts.size).toBeGreaterThanOrEqual(3);
+    const c0 = cam(faces[0]);
+    for (const f of faces) {
+      expect(dist(cam(f).position, c0.position)).toBeLessThan(1e-6);
+      expect(f.shots[0].world.subject.pose).toBe(faces[0].shots[0].world.subject.pose);
+    }
+    expect(new Set(segments(samplesDt(impl(61), 1 / 60)).filter((s) => s.frames[0].shots[0].world.props.kind === 'face').map((s) => s.id)).size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('62 인비저블 컷: 가림막이 화면을 덮은 순간(≥ 0.95)에 컷', () => {
+    const ok = cutsOf(62).some(([a, b]) => (a.shots[0].world.props.occlusion as number) >= 0.95 && (b.shots[0].world.props.occlusion as number) >= 0.95);
+    expect(ok).toBe(true);
+  });
+
+  it('63 J컷·L컷: 소리가 화면보다 먼저 넘어가는 순간(J)과 늦게 넘어가는 순간(L)이 모두 있음', () => {
+    const fr = samplesDt(impl(63), 1 / 60);
+    let j = false;
+    let l = false;
+    for (let i = 1; i < fr.length; i++) {
+      const audioA = fr[i - 1].shots[0].world.props.audio;
+      const audioB = fr[i].shots[0].world.props.audio;
+      const picA = fr[i - 1].shots[0].id;
+      const picB = fr[i].shots[0].id;
+      if (audioA !== audioB && picA === picB && audioB !== picB) j = true; // 소리가 먼저 다음 샷으로
+      if (picA !== picB && audioA === audioB && audioB === picA) l = true; // 화면이 먼저, 소리는 이전 샷에 남음
+    }
+    expect(j).toBe(true);
+    expect(l).toBe(true);
+  });
+
+  it('64 리플 디졸브: 물결(amp > 0) 치며 두 샷이 0<α<1로 섞임', () => {
+    const r = samples(impl(64)).filter((f) => f.composite.kind === 'ripple' && f.composite.alpha > 0.05 && f.composite.alpha < 0.95 && f.composite.amp > 0);
+    expect(r.length).toBeGreaterThan(10);
+    for (const f of r) expect(f.shots.length).toBe(2);
+    has(64, 'ripple');
+  });
+
+  it('65 화이트 플래시: 컷 순간 화면이 하얗게(≥ 0.95)', () => {
+    const ok = cutsOf(65).some(([a, b]) => a.effects.flash >= 0.95 || b.effects.flash >= 0.95);
+    expect(ok).toBe(true);
+    has(65, 'flash');
+  });
+});
+
+describe('C4 10부 빛·렌즈·룩', () => {
+  it('66 강제 원근법: 가까운 캐릭터가 먼 건물(시계탑)보다 화면에서 더 크게', () => {
+    const ok = samples(impl(66)).some((f) => {
+      const lm = vec(f.shots[0].world.props.landmark);
+      const h = f.shots[0].world.props.landmarkHeight as number;
+      const dS = dist(cam(f).position, subj(f));
+      const dL = dist(cam(f).position, lm);
+      return dS <= 3 && dL >= 15 && 1.0 / dS > h / dL;
+    });
+    expect(ok).toBe(true);
+  });
+
+  it('67 이중 노출: 두 샷을 0<amount<1로 겹침', () => {
+    const d = samples(impl(67)).filter((f) => f.composite.kind === 'double' && f.composite.amount > 0.05 && f.composite.amount < 0.95);
+    expect(d.length).toBeGreaterThan(10);
+    for (const f of d) expect(f.shots.length).toBe(2);
+    has(67, 'double');
+  });
+
+  it('68 아나모픽: 아나모픽 패스 + 2.39 레터박스 + 플레어', () => {
+    expect(anyFrame(68, (f) => f.effects.anamorphic > 0 && Math.abs(f.effects.letterbox - 2.39) <= 0.02 && f.effects.flare > 0)).toBe(true);
+    has(68, 'anamorphic');
+  });
+
+  it('69 하이키·로우키: 같은 장면을 high/low/silhouette 조명으로', () => {
+    const l = new Set(samples(impl(69)).map((f) => f.shots[0].world.props.lighting));
+    for (const k of ['high', 'low', 'silhouette']) expect(l.has(k), k).toBe(true);
+  });
+
+  it('70 딥 포커스: 얕은 심도(aperture ≥ 0.8) 구간과 깊은 심도(흐림 없음) 구간 비교, 앞뒤 거리비 ≥ 4', () => {
+    const fr = samples(impl(70));
+    expect(fr.some((f) => f.effects.dof !== null && f.effects.dof.aperture >= 0.8)).toBe(true);
+    expect(fr.some((f) => f.effects.dof === null)).toBe(true);
+    const f = fr[0];
+    const near = vec(f.shots[0].world.props.flower);
+    expect(dist(cam(f).position, subj(f)) / dist(cam(f).position, near)).toBeGreaterThanOrEqual(4);
+  });
+
+  it('71 글리치·VHS: 글리치 패스 활성', () => has(71, 'glitch'));
 });

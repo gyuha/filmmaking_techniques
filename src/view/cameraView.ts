@@ -154,6 +154,7 @@ export function primaryShot(frame: Frame): ShotFrame {
   if (frame.shots.length > 1) {
     if (c.kind === 'dissolve' && c.alpha > 0.5) return frame.shots[1];
     if (c.kind === 'wipe' && c.progress > 0.5) return frame.shots[1];
+    if (c.kind === 'ripple' && c.alpha > 0.5) return frame.shots[1];
   }
   return frame.shots[0];
 }

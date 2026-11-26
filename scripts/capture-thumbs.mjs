@@ -1,4 +1,4 @@
-// 50개 기법의 대표 장면(카메라 화면)을 public/thumbs/NN.jpg 로 저장한다.
+// 모든 기법의 대표 장면(카메라 화면)을 public/thumbs/NN.jpg 로 저장한다.
 // 사용: pnpm thumbs   (빌드 후 vite preview 를 띄워 캡처)
 import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
@@ -32,7 +32,8 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 await page.goto(`http://localhost:${PORT}/`);
 await page.waitForFunction(() => window.__ft?.ready === true);
 const { THUMB_AT } = await import(path.join(root, 'src/data/thumbs.ts')).catch(() => ({ THUMB_AT: null }));
-for (let id = 1; id <= 50; id++) {
+const ids = await page.evaluate(() => [...document.querySelectorAll('#technique-list button')].map((b) => Number(b.dataset.techniqueId)));
+for (const id of ids) {
   const k = THUMB_AT?.[id] ?? 0.5;
   const dataUrl = await page.evaluate(
     ([id, k]) => {
@@ -54,4 +55,4 @@ for (let id = 1; id <= 50; id++) {
 }
 await browser.close();
 stop();
-console.log(`saved 50 thumbnails → ${path.relative(root, outDir)}`);
+console.log(`saved ${ids.length} thumbnails → ${path.relative(root, outDir)}`);

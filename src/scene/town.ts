@@ -297,6 +297,21 @@ export class Town {
       this.moon.position.set(-60, 70, -150);
       this.moon.scale.setScalar(1);
     }
+    // 조명 스타일(하이키·로우키·실루엣)
+    const lighting = world.props.lighting;
+    if (lighting === 'high') {
+      this.hemi.intensity = 1.9;
+      this.hemi.color.set('#ffffff');
+      this.sun.intensity = 1.0;
+    } else if (lighting === 'low') {
+      this.hemi.intensity = 0.04;
+      this.sun.intensity = 4.0;
+      this.sun.color.set('#ffd9a0');
+      this.sun.position.set(-40, 18, 6);
+    } else if (lighting === 'silhouette') {
+      this.hemi.intensity = 0.02;
+      this.sun.intensity = 0.0;
+    }
     const lit = THREE.MathUtils.clamp((tod - 0.45) / 0.3, 0, 1);
     this.windowLit.emissiveIntensity = lit * 1.4;
     this.lampBulbs.emissiveIntensity = 0.2 + lit * 2.5;

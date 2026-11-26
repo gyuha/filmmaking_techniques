@@ -5,14 +5,15 @@ import {
   angleDiff, azimuthAroundSubject, cam, cutCount, dist, impl, len, pitch, samples, samplesDt, sub, subj,
   subjectScreenFraction, unwrapRange, yaw, dot,
 } from './helpers';
+import { TOTAL } from './fixtures/technique-names';
 
 const first = <T>(a: T[]) => a[0];
 const last = <T>(a: T[]) => a[a.length - 1];
 const range = (v: number[]) => Math.max(...v) - Math.min(...v);
 
 describe('C3 공통', () => {
-  it('50개 모두 유한한 pose와 정상 화각', () => {
-    for (let id = 1; id <= 50; id++) {
+  it('모든 기법이 유한한 pose와 정상 화각', () => {
+    for (let id = 1; id <= TOTAL; id++) {
       for (const f of samples(impl(id), 60)) {
         for (const s of f.shots) {
           for (const v of [...s.camera.position, ...s.camera.target, s.camera.fov, s.camera.roll]) expect(Number.isFinite(v), `#${id}`).toBe(true);
@@ -178,5 +179,88 @@ describe('C3 그 밖의 카메라 정의', () => {
       path += step;
     }
     expect(path).toBeGreaterThanOrEqual(30);
+  });
+});
+
+describe('C3 8부 카메라·앵글 확장', () => {
+  it('51 스노리캠: 카메라가 캐릭터에 고정(상대 위치 일정), 캐릭터는 ≥ 3 이동', () => {
+    const fr = samples(impl(51));
+    const rel = fr.map((f) => sub(cam(f).position, subj(f)));
+    for (const r of rel) expect(dist(r, rel[0])).toBeLessThan(0.02);
+    expect(dist(subj(first(fr)), subj(last(fr)))).toBeGreaterThanOrEqual(3);
+  });
+
+  it('52 에어리얼 숏: 높이 ≥ 15 유지, 수평 이동 ≥ 30', () => {
+    const fr = samples(impl(52));
+    for (const f of fr) expect(cam(f).position[1]).toBeGreaterThanOrEqual(15);
+    const a = cam(first(fr)).position;
+    const b = cam(last(fr)).position;
+    expect(Math.hypot(a[0] - b[0], a[2] - b[2])).toBeGreaterThanOrEqual(30);
+  });
+
+  it('53 배럴 롤: 롤이 ≥ 270° 회전', () => {
+    expect(range(samples(impl(53)).map((f) => cam(f).roll))).toBeGreaterThanOrEqual(270);
+  });
+
+  it('54 웜즈아이 뷰: 땅 높이(≤ 0.2)에서 ≥ 50° 올려다봄', () => {
+    for (const f of samples(impl(54), 20)) {
+      expect(cam(f).position[1]).toBeLessThanOrEqual(0.2);
+      expect(pitch(cam(f))).toBeGreaterThanOrEqual(50);
+    }
+  });
+
+  it('55 숏 사이즈: 컷 ≥ 4, 캐릭터 화면 비율이 컷마다 커져 처음 대비 ≥ 8배', () => {
+    const fr = samplesDt(impl(55), 1 / 30);
+    expect(cutCount(fr)).toBeGreaterThanOrEqual(4);
+    const segs: number[] = [];
+    for (let i = 0; i < fr.length; i++) {
+      if (i === 0 || fr[i].shots[0].id !== fr[i - 1].shots[0].id) segs.push(subjectScreenFraction(fr[i]));
+    }
+    for (let i = 1; i < segs.length; i++) expect(segs[i]).toBeGreaterThan(segs[i - 1]);
+    expect(segs[segs.length - 1] / segs[0]).toBeGreaterThanOrEqual(8);
+  });
+
+  it('56 설정 숏: 아주 넓은 숏(캐릭터 ≤ 5%)으로 시작해 컷 후 가까운 숏(≥ 30%)', () => {
+    const fr = samplesDt(impl(56), 1 / 30);
+    expect(subjectScreenFraction(fr[0])).toBeLessThanOrEqual(0.05);
+    expect(cutCount(fr)).toBeGreaterThanOrEqual(1);
+    expect(subjectScreenFraction(last(fr))).toBeGreaterThanOrEqual(0.3);
+  });
+});
+
+describe('C3 9부 대화 문법', () => {
+  /** 두 인물을 잇는 축의 어느 쪽에 카메라가 있는지(부호) */
+  const side = (f: ReturnType<typeof impl>['sample'] extends (t: number) => infer F ? F : never) => {
+    const a = subj(f);
+    const b = f.shots[0].world.props.partner as [number, number, number];
+    const p = cam(f).position;
+    return Math.sign((b[0] - a[0]) * (p[2] - a[2]) - (b[2] - a[2]) * (p[0] - a[0]));
+  };
+
+  it('57 180도 규칙: 지키는 샷은 모두 축 한쪽, 넘는 샷(axisCrossed)은 반대쪽', () => {
+    const fr = samplesDt(impl(57), 1 / 30);
+    const keep = fr.filter((f) => f.shots[0].world.props.axisCrossed !== true);
+    const cross = fr.filter((f) => f.shots[0].world.props.axisCrossed === true);
+    expect(keep.length).toBeGreaterThan(10);
+    expect(cross.length).toBeGreaterThan(10);
+    expect(cutCount(keep)).toBeGreaterThanOrEqual(1);
+    const s0 = side(keep[0]);
+    for (const f of keep) expect(side(f)).toBe(s0);
+    for (const f of cross) expect(side(f)).toBe(-s0);
+  });
+
+  it('58 숏/리버스 숏: 컷 ≥ 3, 어깨 너머(상대 인물 가까이)에서 번갈아 촬영', () => {
+    const fr = samplesDt(impl(58), 1 / 30);
+    expect(cutCount(fr)).toBeGreaterThanOrEqual(3);
+    let aShots = 0;
+    let bShots = 0;
+    for (const f of fr) {
+      const partner = f.shots[0].world.props.partner as [number, number, number];
+      const c = cam(f);
+      if (dist(c.position, partner) < 1.3 && dist(c.target, subj(f)) < 0.8) aShots++;
+      if (dist(c.position, subj(f)) < 1.3 && dist(c.target, partner) < 0.8) bShots++;
+    }
+    expect(aShots).toBeGreaterThan(10);
+    expect(bShots).toBeGreaterThan(10);
   });
 });

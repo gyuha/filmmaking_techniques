@@ -45,7 +45,9 @@ export type Composite =
   | { kind: 'dissolve'; alpha: number }
   | { kind: 'wipe'; progress: number; angle: number }
   | { kind: 'iris'; radius: number }
-  | { kind: 'split'; panes: number };
+  | { kind: 'split'; panes: number }
+  | { kind: 'ripple'; alpha: number; amp: number }
+  | { kind: 'double'; amount: number };
 
 export interface DepthOfField {
   focusDistance: number;
@@ -73,6 +75,12 @@ export interface Effects {
   bokeh: number;
   flare: number;
   godRays: number;
+  /** 화면 전체가 하얗게 번쩍임(0~1) */
+  flash: number;
+  /** 아나모픽 렌즈: 가로 빛줄기·타원 보케 */
+  anamorphic: number;
+  /** 글리치·VHS: 색 어긋남·주사선·줄 밀림 */
+  glitch: number;
 }
 
 export interface Frame {
@@ -118,4 +126,7 @@ export const NO_EFFECTS: Effects = {
   bokeh: 0,
   flare: 0,
   godRays: 0,
+  flash: 0,
+  anamorphic: 0,
+  glitch: 0,
 };

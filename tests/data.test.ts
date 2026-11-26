@@ -1,15 +1,17 @@
 // C2 — 데이터 검사 (.forge/loop.md)
 import { describe, expect, it } from 'vitest';
 import { TECHNIQUES } from '../src/data/techniques';
-import { EXPECTED, EXPECTED_PARTS } from './fixtures/technique-names';
+import { EXPECTED, EXPECTED_PARTS, TOTAL } from './fixtures/technique-names';
 
 describe('C2 기법 데이터', () => {
-  it('정확히 50개', () => {
-    expect(TECHNIQUES).toHaveLength(50);
+  it('정확히 71개(정답 목록과 같은 수)', () => {
+    expect(TOTAL).toBe(71);
+    expect(EXPECTED).toHaveLength(TOTAL);
+    expect(TECHNIQUES).toHaveLength(TOTAL);
   });
 
-  it('id 1..50, 중복 없음, 순서대로', () => {
-    expect(TECHNIQUES.map((t) => t.id)).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
+  it('id 1..71, 중복 없음, 순서대로', () => {
+    expect(TECHNIQUES.map((t) => t.id)).toEqual(Array.from({ length: TOTAL }, (_, i) => i + 1));
   });
 
   it('이름과 부 분류가 정답 목록과 정확히 일치', () => {
@@ -30,8 +32,8 @@ describe('C2 기법 데이터', () => {
     }
   });
 
-  it('50개 화면 설명·사용 상황 중복 없음', () => {
-    expect(new Set(TECHNIQUES.map((t) => t.screenDescription.trim())).size).toBe(50);
-    expect(new Set(TECHNIQUES.map((t) => t.usage.trim())).size).toBe(50);
+  it('화면 설명·사용 상황 중복 없음', () => {
+    expect(new Set(TECHNIQUES.map((t) => t.screenDescription.trim())).size).toBe(TOTAL);
+    expect(new Set(TECHNIQUES.map((t) => t.usage.trim())).size).toBe(TOTAL);
   });
 });

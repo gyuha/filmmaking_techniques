@@ -8,9 +8,10 @@ const EXPECTED_PASS: Record<number, string> = {
   17: 'dissolve', 18: 'wipe', 22: 'iris', 23: 'fade', 26: 'split', 28: 'sepia',
   38: 'flare', 40: 'motionBlur', 41: 'colorGrade', 42: 'letterbox', 43: 'bokeh', 44: 'tiltShift',
   45: 'fisheye', 46: 'godRays', 47: 'selectiveColor', 48: 'dayForNight', 49: 'grain', 37: 'dof',
+  64: 'ripple', 65: 'flash', 67: 'double', 68: 'anamorphic', 71: 'glitch',
 };
 
-test('C5 50개 기법: 두 화면·텍스트·리그·콘솔 오류', async ({ page }) => {
+test('C5 모든 기법: 두 화면·텍스트·리그·콘솔 오류', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());

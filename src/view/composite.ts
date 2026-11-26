@@ -4,7 +4,7 @@ import type { Composite, Effects } from '../techniques/types';
 // 카메라 화면의 최종 합성 패스.
 // 샷 렌더 결과(최대 4장)를 전환 방식(composite)으로 합치고, 렌즈·빛·색 효과(effects)를 입힌다.
 
-export const COMPOSITE_KIND: Record<Composite['kind'], number> = { single: 0, dissolve: 1, wipe: 2, iris: 3, split: 4 };
+export const COMPOSITE_KIND: Record<Composite['kind'], number> = { single: 0, dissolve: 1, wipe: 2, iris: 3, split: 4, ripple: 5, double: 6 };
 
 /** 현재 프레임에서 실제로 켜진 후처리 패스 이름(디버그 API·E2E 검사용) */
 export function activePasses(composite: Composite, fx: Effects): string[] {
@@ -25,6 +25,9 @@ export function activePasses(composite: Composite, fx: Effects): string[] {
   if (fx.bokeh > 0) out.push('bokeh');
   if (fx.flare > 0) out.push('flare');
   if (fx.godRays > 0) out.push('godRays');
+  if (fx.flash > 0) out.push('flash');
+  if (fx.anamorphic > 0) out.push('anamorphic');
+  if (fx.glitch > 0) out.push('glitch');
   return out;
 }
 
@@ -38,7 +41,7 @@ uniform vec2 resolution; uniform float time;
 uniform float cameraNear; uniform float cameraFar;
 uniform float brightness, grayscale, selectiveHue, useSelective, sepia, vignette, letterbox, grain;
 uniform float colorGrade, dayForNight, fisheye, tiltShift, focusDistance, aperture, useDof, bokeh;
-uniform float flare, godRays;
+uniform float flare, godRays, flash, anamorphic, glitch;
 uniform vec3 sunScreen; // xy = uv, z = 1이면 화면 앞쪽
 varying vec2 vUv;
 
@@ -61,6 +64,17 @@ vec3 toSRGB(vec3 c) {
 vec3 sceneColor(vec2 uv) { return toSRGB(sceneColorLinear(uv)); }
 vec3 sceneColorLinear(vec2 uv) {
   if (kind == 1) return mix(texture2D(tA, uv).rgb, texture2D(tB, uv).rgb, amount);
+  if (kind == 5) {
+    vec2 w = vec2(sin(uv.y * 38.0 + time * 9.0), cos(uv.x * 30.0 + time * 7.0)) * angle * 0.007;
+    vec2 q = clamp(uv + w, 0.0, 1.0);
+    return mix(texture2D(tA, q).rgb, texture2D(tB, q).rgb, amount);
+  }
+  if (kind == 6) {
+    vec3 a = texture2D(tA, uv).rgb;
+    vec3 b = texture2D(tB, uv).rgb;
+    vec3 screen = 1.0 - (1.0 - a) * (1.0 - b);
+    return mix(a, screen, amount);
+  }
   if (kind == 2) {
     vec2 dir = vec2(cos(angle), sin(angle));
     vec2 p = (uv - 0.5) * vec2(aspect(), 1.0);
@@ -129,7 +143,7 @@ vec3 discBlur(vec2 uv, float radiusPx, float highlightBoost) {
   for (int i = 0; i < N; i++) {
     float a = float(i) * 2.39996;
     float r = sqrt((float(i) + 0.5) / float(N));
-    vec2 o = vec2(cos(a), sin(a)) * r * radiusPx / resolution;
+    vec2 o = vec2(cos(a) * (anamorphic > 0.0 ? 0.5 : 1.0), sin(a)) * r * radiusPx / resolution;
     vec3 c = sceneColor(uv + o);
     float w = 1.0 + highlightBoost * pow(luma(c), 4.0) * 8.0;
     acc += c * w; wsum += w;
@@ -170,7 +184,16 @@ void main() {
     float band = abs(uv.y - 0.5);
     blurPx = max(blurPx, smoothstep(0.08, 0.42, band) * 14.0 * tiltShift);
   }
-  col = blurPx > 0.0 ? discBlur(uv, blurPx, bokeh) : sceneColor(uv);
+  if (glitch > 0.0) {
+    float band = floor(uv.y * 36.0);
+    float tick = floor(time * 12.0);
+    float jump = step(0.82, hash(vec2(band, tick))) * (hash(vec2(tick, band)) - 0.5) * 0.12 * glitch;
+    vec2 g = vec2(uv.x + jump, uv.y);
+    vec2 ca = vec2(0.006 + 0.01 * abs(sin(time * 3.0)), 0.0) * glitch;
+    col = vec3(sceneColor(g + ca).r, sceneColor(g).g, sceneColor(g - ca).b);
+  } else {
+    col = blurPx > 0.0 ? discBlur(uv, blurPx, bokeh) : sceneColor(uv);
+  }
 
   // 갓레이: 해 위치에서 바깥으로 밝은 부분을 끌고 나온다
   if (godRays > 0.0 && sunScreen.z > 0.5) {
@@ -203,6 +226,18 @@ void main() {
       f += tint * ring * 0.22;
     }
     col += f * flare;
+  }
+
+  // 아나모픽: 밝은 점에서 가로로 길게 뻗는 푸른 빛줄기
+  if (anamorphic > 0.0) {
+    vec3 streak = vec3(0.0);
+    for (int i = -20; i <= 20; i++) {
+      vec2 q = uv + vec2(float(i) * 0.018, 0.0);
+      vec3 s = sceneColor(clamp(q, 0.0, 1.0));
+      float b = smoothstep(0.8, 1.0, luma(s));
+      streak += b * exp(-abs(float(i)) * 0.12);
+    }
+    col += streak * vec3(0.35, 0.55, 1.0) * 0.16 * anamorphic;
   }
 
   // 색 처리
@@ -248,6 +283,13 @@ void main() {
     float n = hash(floor(uv * resolution / 1.5) + fract(time * 24.0) * 97.0) - 0.5;
     col += n * 0.28 * grain;
   }
+  if (glitch > 0.0) {
+    float scan = 0.85 + 0.15 * sin(uv.y * resolution.y * 1.6);
+    col = mix(col, col * scan, glitch);
+    col = mix(col, vec3(luma(col)) * vec3(1.05, 1.0, 0.92), 0.25 * glitch);
+    col += (hash(uv * resolution + time) - 0.5) * 0.08 * glitch;
+  }
+  col = mix(col, vec3(1.0), flash);
   col *= brightness;
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
@@ -279,7 +321,7 @@ export class CompositePass {
         sepia: { value: 0 }, vignette: { value: 0 }, letterbox: { value: 0 }, grain: { value: 0 },
         colorGrade: { value: 0 }, dayForNight: { value: 0 }, fisheye: { value: 0 }, tiltShift: { value: 0 },
         focusDistance: { value: 10 }, aperture: { value: 0 }, useDof: { value: 0 }, bokeh: { value: 0 },
-        flare: { value: 0 }, godRays: { value: 0 }, sunScreen: { value: new THREE.Vector3() },
+        flare: { value: 0 }, godRays: { value: 0 }, flash: { value: 0 }, anamorphic: { value: 0 }, glitch: { value: 0 }, sunScreen: { value: new THREE.Vector3() },
       },
     });
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
@@ -293,8 +335,10 @@ export class CompositePass {
     u.amount.value =
       composite.kind === 'dissolve' ? composite.alpha
         : composite.kind === 'wipe' ? composite.progress
-          : composite.kind === 'iris' ? composite.radius : 0;
-    u.angle.value = composite.kind === 'wipe' ? composite.angle : 0;
+          : composite.kind === 'iris' ? composite.radius
+            : composite.kind === 'ripple' ? composite.alpha
+              : composite.kind === 'double' ? composite.amount : 0;
+    u.angle.value = composite.kind === 'wipe' ? composite.angle : composite.kind === 'ripple' ? composite.amp : 0;
     u.panes.value = composite.kind === 'split' ? composite.panes : 2;
     u.brightness.value = fx.brightness;
     u.grayscale.value = fx.grayscale;
@@ -314,5 +358,8 @@ export class CompositePass {
     u.bokeh.value = fx.bokeh;
     u.flare.value = fx.flare;
     u.godRays.value = fx.godRays;
+    u.flash.value = fx.flash;
+    u.anamorphic.value = fx.anamorphic;
+    u.glitch.value = fx.glitch;
   }
 }
