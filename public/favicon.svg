@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#12141a"/>
+  <!-- 뷰파인더 모서리 -->
+  <g fill="none" stroke="#ffd166" stroke-width="4" stroke-linecap="round">
+    <path d="M8 18V9h9M47 9h9v9M56 46v9h-9M17 55H8v-9"/>
+  </g>
+  <!-- 주황 공 캐릭터 -->
+  <circle cx="32" cy="35" r="16" fill="#ff8a1c"/>
+  <path d="M33 19c2-5 7-6 9-5-1 4-5 6-9 5z" fill="#3f8f3a"/>
+  <circle cx="26.5" cy="33" r="4.6" fill="#fff"/>
+  <circle cx="37.5" cy="33" r="4.6" fill="#fff"/>
+  <circle cx="27.3" cy="33.8" r="2.3" fill="#111"/>
+  <circle cx="38.3" cy="33.8" r="2.3" fill="#111"/>
+</svg>
